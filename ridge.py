@@ -81,75 +81,20 @@ def transform_map(map_arr):
     t = r + b + g - 32768
     return t
 
-def ridge2(map_arr, viewpoint):
+def ridge(hmap, viewpoint, height_offset, line_precision, azimuth_precision, azimuth_start, azimuth_end):
+    (height, width) = hmap.shape
+    x0, y0 = viewpoint
     
-    start = time.time()
-    hmap = transform_map(map_arr)
-    print(f'create hmap time: {time.time() - start}')
-    (height, width, _ ) = map_arr.shape
-    # strategy 1 choose all edge pixels of map as target
-    blines = lines(viewpoint[0], viewpoint[1], width, height, 4, 2*math.pi/360, -math.pi, math.pi)
+    rays = lines(x0, y0, width, height, line_precision, azimuth_precision, azimuth_start, azimuth_end)
     
     ridge_points = []
-    bresenttime = 0
-    hlinetime = 0
-    ridgeptime = 0
-    for bline in blines:
-        # start = time.time()
-        # bline = bham.bresenham(viewpoint, target)
-        # bresenttime += time.time()-start
+    for ray in rays:
+        height_line = [hmap[y, x] for (x,y) in ray]
+        ridge_point_index, _ = ridgepoint(height_offset, height_line) 
+        ridge_points.append(ray[ridge_point_index] + (height_line[ridge_point_index],))
 
-        start = time.time()
-        #height_line = [height_terrarium(map_arr, x, y) for (x, y) in bline]
-        height_line = [hmap[y, x] for (x,y) in bline]
-
-        hlinetime += time.time()-start
-
-        start = time.time()
-        ridge_point_index, _ = ridgepoint(2, height_line)
-        ridgeptime += time.time()-start
-
-        
-        ridge_points.append(bline[ridge_point_index] + (height_line[ridge_point_index],))
-
-    print(f'bline: {bresenttime}\nhline: {hlinetime}\nridgep: {ridgeptime}')
-    
     return ridge_points
 
-def ridge(map_arr, viewpoint):
-    
-    start = time.time()
-    hmap = transform_map(map_arr)
-    print(f'create hmap time: {time.time() - start}')
-    (height, width, _ ) = map_arr.shape
-    # strategy 1 choose all edge pixels of map as target
-    targets = edge_points(width, height)
-    
-    ridge_points = []
-    bresenttime = 0
-    hlinetime = 0
-    ridgeptime = 0
-    for target in targets[::1]:
-        start = time.time()
-        bline = bham.bresenham(viewpoint, target)
-        bresenttime += time.time()-start
-
-        start = time.time()
-        #height_line = [height_terrarium(map_arr, x, y) for (x, y) in bline]
-        height_line = [hmap[y, x] for (x,y) in bline]
-
-        hlinetime += time.time()-start
-
-        start = time.time()
-        ridge_point_index, _ = ridgepoint(2, height_line)
-        ridgeptime += time.time()-start
-
-        
-        ridge_points.append(bline[ridge_point_index] + (height_line[ridge_point_index],))
-
-    print(f'bline: {bresenttime}\nhline: {hlinetime}\nridgep: {ridgeptime}')
-    
-    return ridge_points
 
 def cartesian_to_cylindrical(center, point):
     (x0, y0, z0) = center
@@ -170,18 +115,21 @@ def main():
     lat, lon = 45.877630, 10.857161
     zoom = 10
     radius = 0.2
-    start = time.time()
+    
     map = mp.create_map(lat, lon, zoom, radius)
     map_arr = map.get('map')
-    print(f'create map time: {time.time() - start }')
+    
 
-    start = time.time()
+    
     (height, width, _ ) = map_arr.shape
     viewpoint = (width // 2, height // 2)
     viewpoint_height = height_terrarium(map_arr, viewpoint[0], viewpoint[1])
-    rpoints = ridge2(map_arr, viewpoint)
+
+    hmap = transform_map(map_arr)
+    rpoints = ridge(hmap, viewpoint, 2, 4, 2*math.pi/360, 0, 2*math.pi)
+
     x, y, height = zip(*rpoints)
-    print(viewpoint, viewpoint_height)
+
     mpp = map.get('mpp')
     x_azi = []
     y_ang = []
@@ -196,7 +144,7 @@ def main():
     cyl_points = sorted(cyl_points, key=lambda p : p[0])
     x_azi_s, y_ang_s = zip(*cyl_points)
     
-    print(f'create ridge time: {time.time() - start }')
+    
     
     fig, (ax1, ax2) = plt.subplots(2)
     
