@@ -83,7 +83,7 @@ def download_tiles(tiles, zoom):
     url_terrarium = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
     
     for x, y in tiles:
-        fname = f'fuji-{x}-{y}-{zoom}.png'
+        fname = f'map_tiles/fuji-{x}-{y}-{zoom}.png'
         if not os.path.isfile(f'./{fname}'):
             response = requests.get(url_terrarium.format(z=zoom, x=x, y=y))
             
@@ -127,7 +127,7 @@ def create_map(lat_deg, lon_deg, zoom, radius):
     map = []
     for rowi in range(int(min_tile_y), int(max_tile_y) + 1):
         x_range = range(int(min_tile_x), int(max_tile_x) + 1)
-        row = [image.imread(f'fuji-{coli}-{rowi}-{zoom}.png') for coli in x_range]
+        row = [image.imread(f'map_tiles/fuji-{coli}-{rowi}-{zoom}.png') for coli in x_range]
         row = np.concatenate(row, axis = 1)
 
         map.append(row)
