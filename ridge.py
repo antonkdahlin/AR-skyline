@@ -39,12 +39,12 @@ def edge_points(width, height):
 
     return top + right + bottom + left
 
-def lines(x0, y0, width, height, line_precision, azimuth_precision):
+def lines(x0, y0, width, height, line_precision, azimuth_precision, azimuth_start, azimuth_end):
     '''low line_precision make line more precise ex value of 1 move pointer one pixel at a time
     low azimuth_precision = more lines. ex value of 2pi/360 generates 360 lines'''
-    azimuth = 0
+    azimuth = azimuth_start
     lines = []
-    while azimuth < 2*math.pi:
+    while azimuth < azimuth_end:
         dx = math.cos(azimuth) * line_precision
         dy = math.sin(azimuth) * line_precision
         x, y = x0, y0
@@ -55,6 +55,8 @@ def lines(x0, y0, width, height, line_precision, azimuth_precision):
             y += dy
         lines.append(points)
         azimuth += azimuth_precision
+
+    return lines
         
 def height_terrarium(map_arr, x, y):
     # meters = (red * 256 + green + blue / 256) - 32768
@@ -78,6 +80,41 @@ def transform_map(map_arr):
     b = map_arr[:,:, 2]
     t = r + b + g - 32768
     return t
+
+def ridge2(map_arr, viewpoint):
+    
+    start = time.time()
+    hmap = transform_map(map_arr)
+    print(f'create hmap time: {time.time() - start}')
+    (height, width, _ ) = map_arr.shape
+    # strategy 1 choose all edge pixels of map as target
+    blines = lines(viewpoint[0], viewpoint[1], width, height, 4, 2*math.pi/360, -math.pi, math.pi)
+    
+    ridge_points = []
+    bresenttime = 0
+    hlinetime = 0
+    ridgeptime = 0
+    for bline in blines:
+        # start = time.time()
+        # bline = bham.bresenham(viewpoint, target)
+        # bresenttime += time.time()-start
+
+        start = time.time()
+        #height_line = [height_terrarium(map_arr, x, y) for (x, y) in bline]
+        height_line = [hmap[y, x] for (x,y) in bline]
+
+        hlinetime += time.time()-start
+
+        start = time.time()
+        ridge_point_index, _ = ridgepoint(2, height_line)
+        ridgeptime += time.time()-start
+
+        
+        ridge_points.append(bline[ridge_point_index] + (height_line[ridge_point_index],))
+
+    print(f'bline: {bresenttime}\nhline: {hlinetime}\nridgep: {ridgeptime}')
+    
+    return ridge_points
 
 def ridge(map_arr, viewpoint):
     
@@ -142,7 +179,7 @@ def main():
     (height, width, _ ) = map_arr.shape
     viewpoint = (width // 2, height // 2)
     viewpoint_height = height_terrarium(map_arr, viewpoint[0], viewpoint[1])
-    rpoints = ridge(map_arr, viewpoint)
+    rpoints = ridge2(map_arr, viewpoint)
     x, y, height = zip(*rpoints)
     print(viewpoint, viewpoint_height)
     mpp = map.get('mpp')
@@ -159,10 +196,8 @@ def main():
     cyl_points = sorted(cyl_points, key=lambda p : p[0])
     x_azi_s, y_ang_s = zip(*cyl_points)
     
-    
     print(f'create ridge time: {time.time() - start }')
     
-
     fig, (ax1, ax2) = plt.subplots(2)
     
     plt.imshow(map_arr)
@@ -170,11 +205,27 @@ def main():
     ax1.plot(x_azi_s, y_ang_s)
     plt.show()
 
+def test_lines():
+    lines_ = lines(32,32,64,64,5,math.pi*2/100)
+
+    fig, ax = plt.subplots()
+    
+    
+    
+
+    for line in lines_:
+        x, y = zip(*line)
+        ax.scatter(x, y)
+
+    plt.show()
+    
+
 def test_edge_points():
     assert edge_points(2, 2) == [(0, 0), (1, 0), (1, 1), (0, 1)]
     assert edge_points(3, 2) == [(0, 0), (1, 0), (2, 0), (2, 1), (1, 1), (0, 1)]
     
 
 if __name__ == "__main__":
+    #test_lines()
     test_edge_points()
     main()

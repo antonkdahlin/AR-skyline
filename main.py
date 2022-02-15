@@ -166,12 +166,23 @@ def ridgeline(viewpoint, heightmap, azimuthstart, azimuthend):
     for azimuth in range(azimuthstart, azimuthend): # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!azimuth span
         target = (x + int(math.cos(math.radians(azimuth)) * radius), y + int(math.sin(math.radians(azimuth)) * radius))
         bline = bresenham((x, y), target)
+        
         hline = [heightmap[(y,x,0)] for (x,y) in bline]
-        (rpi, rpa) = ridgepoint(2, hline)
+        (rpi, rpa) = ridgepoint(2, hline) # major error! rpa is not close to real angle
         rpx, rpy = bline[rpi]
-        rpz = heightmap[(rpy, rpx, 0)]
+        
+        dist = math.sqrt((rpy - y)**2 + (rpx - x)**2) # distance to point projected on the xy plane
+        rpz = heightmap[(rpy, rpx, 0)] # zvärde vid ridgepointen
+        dz = rpz - z # relativ höjd
+        slope = 0 # dy/dx type slope
+        angle = math.pi / 2 # angle in radians
+        if dist != 0:
+            slope = dz/dist
+            angle = math.atan2(dz*0.0477, dist)
+
+        
         #cp[(rpy, rpx)] = 255
-        res.append({'rpx':rpx, 'rpy':rpy, 'rpz':rpz, 'rpa':rpa, 'azimuth':azimuth})
+        res.append({'rpx':rpx, 'rpy':rpy, 'rpz':rpz, 'rpa':rpa, 'azimuth':azimuth, 'angle':angle})
     
     return res
 
@@ -186,19 +197,23 @@ def plot_ridgeline_curve(line, azimuthstart, azimuthend):
     # make data
     
     hfov = azimuthend - azimuthstart
-    vfov = 90
-    vfov_slope = math.tan(math.radians(vfov/2))
+    vfov = 30
+    minfov = -15
+   
     x = np.arange(azimuthstart,azimuthend) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!azimuth span
-    y = [math.degrees(math.atan(p['rpa'])) for p in line]
+    #y = [math.degrees(math.atan(p['rpa'])) for p in line]
+    y = [math.degrees(p['angle']) for p in line]
     
 
     # plot
-    fig, ax = plt.subplots(figsize=(4*hfov/vfov,4)) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!azimuth span
+    figsize = (4*hfov/vfov,4)
+    print(figsize)
+    fig, ax = plt.subplots(figsize=figsize) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!azimuth span
 
     ax.plot(x, y, linewidth=1.0)
-
-    ax.set(xlim=(azimuthstart,azimuthend), ylim=(-15, 30)) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!azimuth span
-    fig.tight_layout()
+    
+    ax.set(xlim=(azimuthstart,azimuthend), ylim=(minfov, minfov + vfov)) # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!azimuth span
+    
     plt.show()
 
     pass
@@ -207,13 +222,16 @@ def plot_ridgeline_curve(line, azimuthstart, azimuthend):
 def main():
     # https://tangrams.github.io/heightmapper/#11.65/35.3397/138.7742
     #_image = image.imread("mt_fuji480x239.bmp")
-    _image = image.imread("render_noae.bmp")
+    # _image = image.imread("render_noae.bmp")
+    _image = image.imread("abisko.bmp")
     data = np.asarray(_image)
+    azstart = 135            
+    azend = 225
+    # azstart = -90         
+    # azend = 90
 
-    azstart = -90         
-    azend = 90
-
-    line = ridgeline((416,232, data[(232, 416, 0)]+2), data, azimuthstart=azstart,azimuthend=azend)
+    # line = ridgeline((416,232, data[(232, 416, 0)]+2), data, azimuthstart=azstart,azimuthend=azend) # render_noae example
+    line = ridgeline((480,238, data[(238, 480, 0)]+2), data, azimuthstart=azstart,azimuthend=azend)
     #plot_ridgeline_above_overlaying_heightmap(line, data)
     plot_ridgeline_curve(line,azimuthstart=azstart,azimuthend=azend)
     # print(data.shape)
