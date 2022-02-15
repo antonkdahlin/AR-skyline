@@ -110,6 +110,14 @@ def pxpoint_to_meters(mpp, p):
     x, y, z = p
     return x*mpp, y*mpp, z
 
+def temp(offset_x, offset_y, zoom, x, y):
+    px_x = offset_x + x
+    px_y = offset_y + y
+    world_x = px_x/(2**zoom)
+    world_y = px_y/(2**zoom)
+    lon = 45/32*world_x-180
+    #desmos#p=90\left(-\frac{4\arctan\left(e^{\frac{2\pi\left(x-128\right)}{256}}\right)}{\pi}+1\right)
+
 def main():
     lat, lon = 35.35813931744461, 138.63260800348849
     lat, lon = 45.877630, 10.857161
@@ -117,6 +125,7 @@ def main():
     radius = 0.2
     
     map = mp.create_map(lat, lon, zoom, radius)
+    temp(map.get('pixel_offset_x'), map.get('pixel_offset_y'), zoom)
     map_arr = map.get('map')
     
 

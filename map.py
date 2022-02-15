@@ -58,6 +58,7 @@ def get_tiles(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, zoom):
     return res  
 
 class Point:
+    # https://en.wikipedia.org/wiki/Mercator_projection#Mathematics
     def __init__(self, lat_deg, lon_deg):
         self.lat = lat_deg
         self.lon = lon_deg
@@ -122,7 +123,7 @@ def create_map(lat_deg, lon_deg, zoom, radius):
 
     num_tiles_x = max_tile_x - min_tile_x + 1
     num_tiles_y = max_tile_y - min_tile_y + 1
-    #print(left_cutoff,bottom_cutoff)
+    
    
     map = []
     for rowi in range(int(min_tile_y), int(max_tile_y) + 1):
