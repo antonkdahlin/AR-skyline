@@ -26,6 +26,7 @@ def ridgepoint(height, line, printout = False):
 
 
         if printout: print(f'{dx}\t{dy}\t{angle}\t{cum}')
+    
     return (maxi, angle)
 
 
@@ -45,15 +46,17 @@ def lines(x0, y0, width, height, line_precision, azimuth_precision, azimuth_star
     azimuth = azimuth_start
     lines = []
     while azimuth < azimuth_end:
+        
         dx = math.cos(azimuth) * line_precision
         dy = math.sin(azimuth) * line_precision
+        
         x, y = x0, y0
         points = []
         while 0 <= x < width and 0 <= y < height:
             points.append((int(x), int(y)))
             x += dx
             y += dy
-        lines.append(points)
+        lines.append((points, azimuth))
         azimuth += azimuth_precision
 
     return lines
@@ -88,10 +91,27 @@ def ridge(hmap, viewpoint, height_offset, line_precision, azimuth_precision, azi
     rays = lines(x0, y0, width, height, line_precision, azimuth_precision, azimuth_start, azimuth_end)
     
     ridge_points = []
-    for ray in rays:
+    for ray, azimuth in rays:
         height_line = [hmap[y, x] for (x,y) in ray]
         ridge_point_index, _ = ridgepoint(height_offset, height_line) 
-        ridge_points.append(ray[ridge_point_index] + (height_line[ridge_point_index],))
+        
+        point = ray[ridge_point_index] + (height_line[ridge_point_index],)
+        ridge_points.append(point)
+
+    return ridge_points
+
+def ridge2(hmap, viewpoint, height_offset, line_precision, azimuth_precision, azimuth_start, azimuth_end):
+    (height, width) = hmap.shape
+    x0, y0 = viewpoint
+    
+    rays = lines(x0, y0, width, height, line_precision, azimuth_precision, azimuth_start, azimuth_end)
+    
+    ridge_points = []
+    for ray, azimuth in rays:
+        height_line = [hmap[y, x] for (x,y) in ray]
+        ridge_point_index, _ = ridgepoint(height_offset, height_line) 
+        point = ray[ridge_point_index] + (height_line[ridge_point_index],)
+        ridge_points.append((point, azimuth))
 
     return ridge_points
 
@@ -99,7 +119,7 @@ def ridge(hmap, viewpoint, height_offset, line_precision, azimuth_precision, azi
 def cartesian_to_cylindrical(center, point):
     (x0, y0, z0) = center
     x, y, z = point
-    azimuth = math.atan2(y0-y, x-x0)
+    azimuth = math.atan2(y-y0, x-x0)
     radius = math.sqrt((y - y0)**2 + (x - x0)**2 + (z - z0)**2)
     angle = math.asin((z - z0) / radius)
     return azimuth, angle
@@ -110,56 +130,72 @@ def pxpoint_to_meters(mpp, p):
     x, y, z = p
     return x*mpp, y*mpp, z
 
-def temp(offset_x, offset_y, zoom, x, y):
-    px_x = offset_x + x
-    px_y = offset_y + y
-    world_x = px_x/(2**zoom)
-    world_y = px_y/(2**zoom)
-    lon = 45/32*world_x-180
-    #desmos#p=90\left(-\frac{4\arctan\left(e^{\frac{2\pi\left(x-128\right)}{256}}\right)}{\pi}+1\right)
+
+
+
 
 def main():
-    lat, lon = 35.35813931744461, 138.63260800348849
-    lat, lon = 45.877630, 10.857161
-    zoom = 10
-    radius = 0.2
+    # setup variables
+    lat, lon = 35.35813931744461, 138.63260800348849 # mt fuji
+    #lat, lon = 45.877630, 10.857161 # italy
+    #lat, lon = 45.8784571, 10.8567149
+    zoom = 12
+    radius = 0.15
+    height_offset = 2
+    line_precision = 1
+    azimuth_precision = 2*math.pi/720
+    azimuth_start = -math.pi
+    azimuth_end = math.pi 
     
+    # get map for that area
     map = mp.create_map(lat, lon, zoom, radius)
-    temp(map.get('pixel_offset_x'), map.get('pixel_offset_y'), zoom)
-    map_arr = map.get('map')
-    
 
-    
+    map_arr = map.get('map')
     (height, width, _ ) = map_arr.shape
+
     viewpoint = (width // 2, height // 2)
+    print(viewpoint)
     viewpoint_height = height_terrarium(map_arr, viewpoint[0], viewpoint[1])
 
-    hmap = transform_map(map_arr)
-    rpoints = ridge(hmap, viewpoint, 2, 4, 2*math.pi/360, 0, 2*math.pi)
 
-    x, y, height = zip(*rpoints)
+    hmap = transform_map(map_arr) # transform to map with decoded height
+    # rpoints = ridge(
+    #     hmap, viewpoint, 
+    #     height_offset, line_precision,
+    #     azimuth_precision, azimuth_start, 
+    #     azimuth_end)
+
+    rpoints = ridge2(
+        hmap, viewpoint, 
+        height_offset, line_precision,
+        azimuth_precision, azimuth_start, 
+        azimuth_end)
+
+    # for p in rpoints:
+    #     print(p)
+    rpoints, azimuth = zip(*rpoints)
+    (x, y, height) = zip(*rpoints)
+
 
     mpp = map.get('mpp')
-    x_azi = []
-    y_ang = []
+    rpoints_cyl = []
     for p in rpoints:
         azi, angle = cartesian_to_cylindrical(
             pxpoint_to_meters(mpp, viewpoint + (viewpoint_height,)), 
             pxpoint_to_meters(mpp, p))
-        x_azi.append(azi)
-        y_ang.append(angle)
-    
-    cyl_points = zip(x_azi, y_ang)
-    cyl_points = sorted(cyl_points, key=lambda p : p[0])
-    x_azi_s, y_ang_s = zip(*cyl_points)
-    
-    
+        
+        rpoints_cyl.append((azi, angle))
+
+    # for p in rpoints_cyl:
+    #     print(p)
+
+    azi, ang = zip(*rpoints_cyl)
     
     fig, (ax1, ax2) = plt.subplots(2)
     
     plt.imshow(map_arr)
-    ax2.plot(x, y, linewidth=2, color='magenta')
-    ax1.plot(x_azi_s, y_ang_s)
+    ax2.scatter(x, y, s=10, color='r')
+    ax1.plot(azimuth, ang)
     plt.show()
 
 def test_lines():

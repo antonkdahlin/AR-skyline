@@ -1,6 +1,7 @@
 from math import tan, asinh, degrees, pi, radians, cos, log, modf
 import itertools
 import functools
+import math
 
 import numpy as np
 from matplotlib import image
@@ -66,7 +67,7 @@ class Point:
     def world(self):
         lat_rad = radians(self.lat)
         x = (self.lon + 180)*256/360
-        y = (pi - log(tan(pi/4+lat_rad/2)))*256/(2*pi)
+        y = (pi - log(tan(pi/4 + lat_rad/2)))*256/(2*pi)
         return x, max(min(y,256),0)
     
     def pixel(self, zoom):
@@ -78,6 +79,16 @@ class Point:
         xf, xi = modf(pxx/256)
         yf, yi = modf(pxy/256)
         return (xi, xf),(yi, yf)
+
+def px_to_latlon(offset_x, offset_y, zoom, x, y):
+    px_x = offset_x + x
+    px_y = offset_y + y
+    world_x = px_x/(2**zoom)
+    world_y = px_y/(2**zoom)
+    lon = 45/32*world_x-180
+    # p=90\left(-\frac{4\arctan\left(e^{\frac{2\pi\left(x-128\right)}{256}}\right)}{\pi}+1\right) # desmos
+    lat = 28.6478897565*(math.pi - 4*math.atan(math.exp(math.pi * (world_y/128-1))))
+    return( lat, lon)
 
 def download_tiles(tiles, zoom):
     url_normal = 'https://s3.amazonaws.com/elevation-tiles-prod/normal/{z}/{x}/{y}.png'
@@ -99,7 +110,7 @@ zoom will alter the resolution of the map'''
 def create_map(lat_deg, lon_deg, zoom, radius): 
     sw_point = Point(lat_deg - radius, lon_deg - radius) # sw
     ne_point = Point(lat_deg + radius, lon_deg + radius) # ne
-
+    
     tiles = get_tiles(lat_deg - radius, 
                       lat_deg + radius,
                       lon_deg - radius,
@@ -111,15 +122,17 @@ def create_map(lat_deg, lon_deg, zoom, radius):
     # calculating cuttoff points
     sw_tile = sw_point.tile(zoom)
     (min_tile_x, swtilepartx),(max_tile_y, swtileparty) = sw_tile
-
+    
     left_cutoff = int(swtilepartx * 256)
     bottom_cutoff = int(swtileparty * 256)
+    
 
     ne_tile = ne_point.tile(zoom)
     (max_tile_x, netilepartx),(min_tile_y, netileparty) = ne_tile
 
     right_cutoff = int(netilepartx * 256)
     top_cutoff = int(netileparty * 256)
+    
 
     num_tiles_x = max_tile_x - min_tile_x + 1
     num_tiles_y = max_tile_y - min_tile_y + 1
@@ -134,13 +147,15 @@ def create_map(lat_deg, lon_deg, zoom, radius):
         map.append(row)
 
     map = np.concatenate(map, axis = 0)
+   
+   
     map = map[
-        top_cutoff:bottom_cutoff+256*int(num_tiles_y-1), 
-        left_cutoff:right_cutoff+256*int(num_tiles_x-1)]
+        top_cutoff:bottom_cutoff+256*int(num_tiles_y-1)+1, 
+        left_cutoff:right_cutoff+256*int(num_tiles_x-1)+1]
 
     (sw_x_pixel, _) = sw_point.pixel(zoom)
     (_, ne_y_pixel) = ne_point.pixel(zoom)
-    res = {'pixel_offset_x': sw_x_pixel, 'pixel_offset_y': ne_y_pixel, 'map': map, 'mpp': meters_per_pixel(lat_deg, zoom)}
+    res = {'pixel_offset_x': sw_x_pixel , 'pixel_offset_y': ne_y_pixel, 'map': map, 'mpp': meters_per_pixel(lat_deg, zoom)}
 
     return res
 
@@ -158,7 +173,7 @@ def create_map(lat_deg, lon_deg, zoom, radius):
 
 
     
-    
+
 
 
 def main():
@@ -167,8 +182,17 @@ def main():
     url_terrarium = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
     # lat,lon = 35.363053, 138.730243
     lat, lon = 27.98993013928877, 86.92526718587251
-    zoom = 10
-    create_map(lat,lon, zoom, 0.3)
+    lat, lon = 45.8784571, 10.8567149
+    zoom = 12
+    map = create_map(lat, lon, zoom, 0.01)
+    map_arr = map.get('map')
+    (height, width, _ ) = map_arr.shape
+    mpp = map.get('mpp')
+    pixel_offset_x = map.get('pixel_offset_x')
+    pixel_offset_y = map.get('pixel_offset_y')
+    print(f'x offset: {pixel_offset_x}\ny offset: {pixel_offset_y}\nmeters per pixel: {mpp}')
+    plt.imshow(map_arr)
+    plt.show()
 
     
 
