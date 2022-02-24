@@ -108,13 +108,14 @@ Map lat interval [lat_deg - radius, lat_deg + radius]
 Map lon interval [lon_deg - radius, lat_don + radius]
 zoom will alter the resolution of the map'''
 def create_map(lat_deg, lon_deg, zoom, radius): 
-    sw_point = Point(lat_deg - radius, lon_deg - radius) # sw
-    ne_point = Point(lat_deg + radius, lon_deg + radius) # ne
+    xradius = radius / math.cos(math.radians(lat_deg))
+    sw_point = Point(lat_deg - radius, lon_deg - xradius) # sw
+    ne_point = Point(lat_deg + radius, lon_deg + xradius) # ne
     
     tiles = get_tiles(lat_deg - radius, 
                       lat_deg + radius,
-                      lon_deg - radius,
-                      lon_deg + radius,
+                      lon_deg - xradius,
+                      lon_deg + xradius,
                       zoom)
 
     download_tiles(tiles, zoom)
@@ -172,8 +173,33 @@ def create_map(lat_deg, lon_deg, zoom, radius):
 
 
 
+def save_map(map):
     
+    im = Image.fromarray((map*255).astype(np.uint8))
+    im.save('map.png')   
 
+def save_map_as_greyscale(map_arr, fname = 'map.png'):
+    (height, width, _ ) = map_arr.shape
+    #r = map_arr[:,:, 0] * 65536
+    r = map_arr[:,:, 0] * 65280
+    g = map_arr[:,:, 1] * 255
+    b = map_arr[:,:, 2] * 0.99609375
+    t = r + b + g - 32768
+    
+    maxh = np.max(t)
+    minh = np.min(t)
+    diff = maxh - minh
+    print(f'max {maxh}, min {minh}, height diff {diff} meters')
+    t = t - minh
+    t = t / diff
+    t = t * 255
+    t = t.astype(np.uint8)
+
+    #f = lambda x: [x, x, x]
+    t = np.repeat(t, 3)
+    t = np.reshape(t, ((height, width, 3)))
+    im = Image.fromarray(t)
+    im.save(fname) 
 
 
 def main():
@@ -183,14 +209,18 @@ def main():
     # lat,lon = 35.363053, 138.730243
     lat, lon = 27.98993013928877, 86.92526718587251
     lat, lon = 45.8784571, 10.8567149
-    zoom = 12
-    map = create_map(lat, lon, zoom, 0.01)
+    zoom = 10
+    map = create_map(lat, lon, zoom, 0.09)
     map_arr = map.get('map')
     (height, width, _ ) = map_arr.shape
+    print(map_arr.shape)
     mpp = map.get('mpp')
     pixel_offset_x = map.get('pixel_offset_x')
     pixel_offset_y = map.get('pixel_offset_y')
     print(f'x offset: {pixel_offset_x}\ny offset: {pixel_offset_y}\nmeters per pixel: {mpp}')
+    print(f'map width {width*mpp}m\nmap height {height*mpp}m')
+    # save_map(map_arr)
+    save_map_as_greyscale(map_arr)
     plt.imshow(map_arr)
     plt.show()
 
