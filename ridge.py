@@ -64,11 +64,11 @@ def lines(x0, y0, width, height, line_precision, azimuth_precision, azimuth_star
 def height_terrarium(map_arr, x, y):
     # meters = (red * 256 + green + blue / 256) - 32768
     r, g, b = map_arr[y, x]
-    
+    r, g, b = 255*r, 255*g, 255*b
     # r, g, b = r*256, g*256, b # map from (0-1) to (0-256) # 2.23s
     # meters = r*256 + g + b - 32768
     
-    meters = 256*(256*r + g - 128) + b # 1.58s
+    meters = 256*r + g + b/256 - 32768 # 1.58s
     # meters = 65536*r + 256*b + b - 32768 # 2.08 sec
     
 
@@ -78,9 +78,9 @@ def height_terrarium(map_arr, x, y):
 def transform_map(map_arr):
     #f = lambda x: x[0]*256 + x[1] + x[2]/256
     
-    r = map_arr[:,:, 0] * 65536
-    g = map_arr[:,:, 1] * 256
-    b = map_arr[:,:, 2]
+    r = map_arr[:,:, 0] * 65280
+    g = map_arr[:,:, 1] * 255
+    b = map_arr[:,:, 2] * 0.99609375
     t = r + b + g - 32768
     return t
 
@@ -138,9 +138,12 @@ def main():
     # setup variables
     lat, lon = 35.35813931744461, 138.63260800348849 # mt fuji
     #lat, lon = 45.877630, 10.857161 # italy
-    #lat, lon = 45.8784571, 10.8567149
-    zoom = 12
-    radius = 0.15
+    lat, lon = 45.8784571, 10.8567149
+    lat, lon = 68.349389, 18.821194
+    lat, lon = 68.271139, 18.974528
+    # lat, lon = 65.5869998, 22.1494364 # luleå
+    zoom = 10
+    radius = 0.04
     height_offset = 2
     line_precision = 1
     azimuth_precision = 2*math.pi/720
@@ -149,8 +152,9 @@ def main():
     
     # get map for that area
     map = mp.create_map(lat, lon, zoom, radius)
-
+    
     map_arr = map.get('map')
+    mp.save_map_as_greyscale(map_arr, 'luleå.png')
     (height, width, _ ) = map_arr.shape
 
     viewpoint = (width // 2, height // 2)
