@@ -32,19 +32,50 @@ def threshholdingwithslider(img):
     plt.show()
 
 def main():
-    bgr = cv.imread('skyline.jpg', cv.IMREAD_COLOR)
-    gray = cv.cvtColor(bgr, cv.COLOR_BGR2GRAY)
+    fname = 'skyline.jpg'
+    # fname = 'unitycity.jpg'
+    # fname = 'sky2.jpg'
+    # fname='skylab.jpg'
+    # fname='screenshot.png'
+    bgr = cv.imread(fname, cv.IMREAD_COLOR)
+    res = close_open(5, 10, bgr)
+    canny_on_blue_channel(bgr)
+    # rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB)
+    # b, g, r = cv.split(bgr)
+    # gray = cv.cvtColor(bgr, cv.COLOR_BGR2GRAY)
 
-    print(gray[0,0])
-    print(bgr[0,0])
-
-    fig, axs = plt.subplots(3)
-
-    axs[0].imshow(bgr)
-    axs[1].imshow(gray, 'gray')
-    axs[2].imshow(gray)
-    plt.show()
+    # th = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 23, 2)
+    # kernel = np.ones((3, 3), np.uint8)
+    # opening = cv.morphologyEx(th, cv.MORPH_OPEN, kernel)
+    # closing = cv.morphologyEx(th, cv.MORPH_CLOSE, kernel)
     
+    # contours, hierarchy = cv.findContours(th, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+    # canny = cv.Canny(gray, 64, 26)
+
+    # longest = max(contours, key=lambda x: cv.arcLength(x, True))
+
+    # fig, axs = plt.subplots(2,3)
+
+    # axs[0,0].imshow(rgb)
+    # axs[0,1].imshow(gray,'gray')
+    # axs[0,2].imshow(canny,'gray')
+    # axs[1,0].imshow(th,'gray')
+    
+def close_open(r1, r2, bgr):
+
+
+def canny_on_blue_channel(bgr):
+    blue, g, t = cv.split(bgr)
+    canny = cv.Canny(blue, 64, 26)
+    fig, axs = plt.subplots(2,3)
+
+    axs[0,0].imshow(bgr)
+    axs[0,1].imshow(canny,'gray')
+    axs[0,2].imshow(canny,'gray')
+    axs[1,0].imshow(canny,'gray')
+    
+    plt.show()
 
 if __name__ == "__main__":
     main()

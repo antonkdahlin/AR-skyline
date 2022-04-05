@@ -108,7 +108,8 @@ def ridge2(hmap, viewpoint, height_offset, line_precision, azimuth_precision, az
     
     ridge_points = []
     for ray, azimuth in rays:
-        height_line = [hmap[y, x] for (x,y) in ray]
+        height_line = [hmap.item(y, x) for (x,y) in ray]
+        #height_line = [hmap[y, x] for (x,y) in ray]
         ridge_point_index, _ = ridgepoint(height_offset, height_line) 
         point = ray[ridge_point_index] + (height_line[ridge_point_index],)
         ridge_points.append((point, azimuth))
@@ -136,16 +137,16 @@ def pxpoint_to_meters(mpp, p):
 
 def main():
     # setup variables
-    lat, lon = 35.35813931744461, 138.63260800348849 # mt fuji
-    #lat, lon = 45.877630, 10.857161 # italy
-    lat, lon = 45.8784571, 10.8567149
-    lat, lon = 68.349389, 18.821194
-    lat, lon = 68.271139, 18.974528
+    # lat, lon = 35.35813931744461, 138.63260800348849 # mt fuji
+    lat, lon = 45.877630, 10.857161 # italy
+    # lat, lon = 45.8784571, 10.8567149 # italy 2
+    lat, lon = 68.349389, 18.821194 # abisko
+    # lat, lon = 68.271139, 18.974528 # abisko 2
     # lat, lon = 65.5869998, 22.1494364 # luleå
     zoom = 10
-    radius = 0.04
+    radius = 0.15
     height_offset = 2
-    line_precision = 1
+    line_precision = 4
     azimuth_precision = 2*math.pi/720
     azimuth_start = -math.pi
     azimuth_end = math.pi 
@@ -168,13 +169,13 @@ def main():
     #     height_offset, line_precision,
     #     azimuth_precision, azimuth_start, 
     #     azimuth_end)
-
+    start = time.time()
     rpoints = ridge2(
         hmap, viewpoint, 
         height_offset, line_precision,
         azimuth_precision, azimuth_start, 
         azimuth_end)
-
+    print(f'ridge time: {time.time()-start}')
     # for p in rpoints:
     #     print(p)
     rpoints, azimuth = zip(*rpoints)

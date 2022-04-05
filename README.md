@@ -6,6 +6,9 @@
 - Account for curvature of  earth
 - Radius in merters instead of degrees
 
+### Misc
+- Estimate viewing range from image and generate skyline from GIS with view range in mind
+
 ## Goals
 ### Skyline extraction from image
 - Robustness against clouds
