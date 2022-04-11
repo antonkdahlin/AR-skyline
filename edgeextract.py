@@ -33,14 +33,28 @@ def threshholdingwithslider(img):
 
 def main():
     fname = 'skyline.jpg'
-    # fname = 'unitycity.jpg'
+    fname = 'unitycity.jpg'
     # fname = 'sky2.jpg'
     # fname='skylab.jpg'
-    # fname='screenshot.png'
+    fname='screenshot.png'
     bgr = cv.imread(fname, cv.IMREAD_COLOR)
-    res = close_open(5, 10, bgr)
-    canny_on_blue_channel(bgr)
-    # rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB)
+    blue, g, r = cv.split(bgr)
+    morph = close_open(5, 10, blue)
+    canny = canny_on_blue_channel(morph)
+    ath = cv.adaptiveThreshold(blue, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 8)
+    rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB)
+
+    extract_skyline(canny)
+
+    '''
+    # using contours
+    contours, hierarchy = cv.findContours(canny, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    print(len(contours))
+    
+    for i,con in enumerate(contours):
+        cv.drawContours(rgb, [con], 0, (255-int(i*255/len(contours)),int(i*255/len(contours)),0), 3)
+    '''
+   # cv.drawContours(rgb, contours, 2, (0,0,255), 3)
     # b, g, r = cv.split(bgr)
     # gray = cv.cvtColor(bgr, cv.COLOR_BGR2GRAY)
 
@@ -55,27 +69,36 @@ def main():
 
     # longest = max(contours, key=lambda x: cv.arcLength(x, True))
 
-    # fig, axs = plt.subplots(2,3)
-
-    # axs[0,0].imshow(rgb)
-    # axs[0,1].imshow(gray,'gray')
-    # axs[0,2].imshow(canny,'gray')
-    # axs[1,0].imshow(th,'gray')
-    
-def close_open(r1, r2, bgr):
-
-
-def canny_on_blue_channel(bgr):
-    blue, g, t = cv.split(bgr)
-    canny = cv.Canny(blue, 64, 26)
     fig, axs = plt.subplots(2,3)
 
-    axs[0,0].imshow(bgr)
-    axs[0,1].imshow(canny,'gray')
-    axs[0,2].imshow(canny,'gray')
+    axs[0,0].imshow(rgb)
+    axs[0,1].imshow(blue,'gray')
+    axs[0,2].imshow(morph,'gray')
     axs[1,0].imshow(canny,'gray')
-    
+    axs[1,1].imshow(ath,'gray')
+
+    plt.tight_layout()
     plt.show()
+
+def extract_skyline(img):
+    
+    y,x = np.nonzero(img)
+    print(y[290:400])
+    plt.scatter(x,y)
+    plt.show()
+
+def close_open(r1, r2, img):
+    # close with disk size 5
+    # open with disk size 10
+    kernel5 = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
+    kernel10 = cv.getStructuringElement(cv.MORPH_ELLIPSE, (10, 10))
+    closing = cv.morphologyEx(img, cv.MORPH_CLOSE, kernel5)
+    opening = cv.morphologyEx(closing, cv.MORPH_OPEN, kernel10)
+    return opening
+
+def canny_on_blue_channel(blue):
+    canny = cv.Canny(blue, 32, 64)
+    return canny
 
 if __name__ == "__main__":
     main()
