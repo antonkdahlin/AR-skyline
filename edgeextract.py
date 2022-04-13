@@ -34,9 +34,9 @@ def threshholdingwithslider(img):
 def main():
     fname = 'skyline.jpg'
     fname = 'unitycity.jpg'
-    # fname = 'sky2.jpg'
+    fname = 'sky2.jpg'
     # fname='skylab.jpg'
-    fname='screenshot.png'
+    #fname='screenshot.png'
     bgr = cv.imread(fname, cv.IMREAD_COLOR)
     blue, g, r = cv.split(bgr)
     morph = close_open(5, 10, blue)
@@ -44,7 +44,10 @@ def main():
     ath = cv.adaptiveThreshold(blue, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 8)
     rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB)
 
-    extract_skyline(canny)
+
+    extract_skyline_traverse(canny)
+    
+    
 
     '''
     # using contours
@@ -81,11 +84,36 @@ def main():
     plt.show()
 
 def extract_skyline(img):
+    def first_non_zero(array):
+        res = -1
+        non_zero = np.flatnonzero(array)
+        if len(non_zero) > 0:
+            res = non_zero[0]
+        return res
+    first_nonzero = np.apply_along_axis(first_non_zero, 0, img)
+    plt.imshow(img)
+    y, x = img.shape
     
-    y,x = np.nonzero(img)
-    print(y[290:400])
-    plt.scatter(x,y)
+    xval = np.arange(x)
+    
+    plt.scatter(xval,first_nonzero)
     plt.show()
+
+def extract_skyline_traverse(img):
+    i = 0
+    fcol_nonzero = np.flatnonzero(img[:, i])
+    y, x = img.shape
+    while fcol_nonzero.size < 1 and i < x-1:
+        i += 1
+        fcol_nonzero = np.flatnonzero(img[:, i])
+        
+    if fcol_nonzero.size < 1:
+        raise ValueError('image has no edge pixels')
+
+    s = [(i, fcol_nonzero[0])]
+    
+    print(s)
+    
 
 def close_open(r1, r2, img):
     # close with disk size 5
