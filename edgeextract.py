@@ -32,11 +32,9 @@ def threshholdingwithslider(img):
     plt.show()
 
 def main():
-    fname = 'skyline.jpg'
-    fname = 'unitycity.jpg'
-    fname = 'sky2.jpg'
-    # fname='skylab.jpg'
-    #fname='screenshot.png'
+    extract_skyline_with_preprocessing('sky2.jpg', True)
+
+def extract_skyline_with_preprocessing(fname, plot = False):
     bgr = cv.imread(fname, cv.IMREAD_COLOR)
     blue, g, r = cv.split(bgr)
     morph = close_open(5, 10, blue)
@@ -45,43 +43,23 @@ def main():
     rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB)
 
 
-    extract_skyline_traverse(canny)
+    res = extract_skyline(canny)
     
     
+    if plot:
+        fig, axs = plt.subplots(2,3)
 
-    '''
-    # using contours
-    contours, hierarchy = cv.findContours(canny, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-    print(len(contours))
+        axs[0,0].imshow(rgb)
+        axs[0,1].imshow(blue,'gray')
+        axs[0,2].imshow(morph,'gray')
+        axs[1,0].imshow(canny,'gray')
+        axs[1,1].imshow(ath,'gray')
+
+        plt.tight_layout()
+        plt.show()
     
-    for i,con in enumerate(contours):
-        cv.drawContours(rgb, [con], 0, (255-int(i*255/len(contours)),int(i*255/len(contours)),0), 3)
-    '''
-   # cv.drawContours(rgb, contours, 2, (0,0,255), 3)
-    # b, g, r = cv.split(bgr)
-    # gray = cv.cvtColor(bgr, cv.COLOR_BGR2GRAY)
 
-    # th = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 23, 2)
-    # kernel = np.ones((3, 3), np.uint8)
-    # opening = cv.morphologyEx(th, cv.MORPH_OPEN, kernel)
-    # closing = cv.morphologyEx(th, cv.MORPH_CLOSE, kernel)
-    
-    # contours, hierarchy = cv.findContours(th, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-
-    # canny = cv.Canny(gray, 64, 26)
-
-    # longest = max(contours, key=lambda x: cv.arcLength(x, True))
-
-    fig, axs = plt.subplots(2,3)
-
-    axs[0,0].imshow(rgb)
-    axs[0,1].imshow(blue,'gray')
-    axs[0,2].imshow(morph,'gray')
-    axs[1,0].imshow(canny,'gray')
-    axs[1,1].imshow(ath,'gray')
-
-    plt.tight_layout()
-    plt.show()
+    return rgb, res
 
 def extract_skyline(img):
     def first_non_zero(array):
@@ -91,13 +69,18 @@ def extract_skyline(img):
             res = non_zero[0]
         return res
     first_nonzero = np.apply_along_axis(first_non_zero, 0, img)
-    plt.imshow(img)
+
+    
+    
     y, x = img.shape
     
     xval = np.arange(x)
-    
+    '''
+    plt.imshow(img)
     plt.scatter(xval,first_nonzero)
     plt.show()
+    '''
+    return (xval, first_nonzero)
 
 def extract_skyline_traverse(img):
     i = 0

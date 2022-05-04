@@ -105,7 +105,7 @@ def ridge2(hmap, viewpoint, height_offset, line_precision, azimuth_precision, az
     x0, y0 = viewpoint
     
     rays = lines(x0, y0, width, height, line_precision, azimuth_precision, azimuth_start, azimuth_end)
-    
+    print(f'number of rays cast: {len(rays)}')
     ridge_points = []
     for ray, azimuth in rays:
         height_line = [hmap.item(y, x) for (x,y) in ray]

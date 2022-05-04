@@ -1,5 +1,6 @@
 # Kvar att göra
 1. algoritm för att extrahera skyline från binär bild
+    * transformera från "kamera" till "panorama" , kanske ta med i rapport
 2. algoritm för att matcha två skylines
 3. komma på sätt att mäta hur bra algoritmerna är
 4. ta fram bilder med tillhörande höjddata att testa på
@@ -12,4 +13,8 @@
     3. med information om sikt
     4. med information om solriktning
 6. rapport
+7. förbättra algoritm för skyline från höjddata (lin interpolering, bättre linjegeneration)
+8. AR overlay på bild
+    1. mappa position på bild till koordinat
+    2. använda och visa data som namn, höjd och distans
 
