@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from ridge import ridge2, cartesian_to_cylindrical
 from edgeextract import extract_skyline_with_preprocessing
 import math
-from scipy import signal
+
 
 
 def main():
@@ -26,28 +26,28 @@ def main():
     d0 = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637885605140156403.json'
     d50 = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637885606206101013.json'
     test = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637885650953570488.json'
+    encodedhfov = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637896078768153833.json'
 
-    res = importJson(lower_fov)
+    res = importJson(encodedhfov)
     raster_samplerate = 2 
 
     # get skyline from image analysis
     imgpath = res.get('absoluteImgPath')
     img, short_line = extract_skyline_with_preprocessing(imgpath)
     
-    # ----TODO---- get this from camera/unity
-    hfov_img_degrees = 90 
-
+    
+    vfov_img_degrees = res.get('cam_fov', 90.0) 
     print(f'img resolution {img.shape}')
     height_img, width_img, _ = img.shape
     aspectratio_img = width_img / height_img
-    vfov_img_radians = 2*np.arctan(np.tan(np.radians(hfov_img_degrees) / 2 ) / aspectratio_img)
-    vfov_img_degrees = vfov_img_radians / math.pi * 180
+    hfov_img_radians = 2*np.arctan(np.tan(np.radians(vfov_img_degrees) / 2 ) * aspectratio_img)
+    hfov_img_degrees = hfov_img_radians / math.pi * 180
     img_sample_rate = width_img / hfov_img_degrees # samples per azimuth degree
     print(f'img calculations---------\naspect\t{aspectratio_img}\nhfov\t{hfov_img_degrees}\nvfov\t{vfov_img_degrees}\nsamplerate\t{img_sample_rate}')
     short_line_transformed = transform_img_line(short_line, hfov_img_degrees, img.shape)
     azi, ang = short_line_transformed
-    num_data_points = raster_samplerate * hfov_img_degrees
-    print()
+    num_data_points = raster_samplerate * int(hfov_img_degrees)
+    
     azi_new = np.linspace(azi[0], azi[-1], num_data_points)
     ang_new = np.interp(azi_new, azi, ang)
 
@@ -78,13 +78,6 @@ def main():
     
     
     rpoints = ridge2(raster, cam_xz_t, cam_pos.get('y'), 1, 2*math.pi/(360*raster_samplerate), 0, math.pi*2)
-    # print(f'cam_pos: {cam_xz_t + (cam_pos.get("y"),)}')
-    
-    # for p in rpoints:
-    #     p, dir = p
-    #     if -2.1 < dir  < -1.9:
-    #         print(p, dir)
-    
 
     rpoints, azimuth = zip(*rpoints)
     (x, y, height) = zip(*rpoints)
@@ -99,7 +92,7 @@ def main():
     
 
     #long_line = (azi, ang)
-    long_line = (azimuth, ang)
+    #long_line = (azimuth, ang)
     print(f'line from img ,xy same length?{len(azimuth) == len(ang)}, sampling rate = {len(azimuth) / 360}')
 
     #shift = find_align(long_line, short_line)
@@ -180,6 +173,7 @@ def sample_from(sample_points, source):
             res.append(source[int(idx)] * (1-frac) + source[int(idx) + 1] * frac)
     return res
 
+
 def transform_img_line(line, img_hfov, img_shape):
     height_img, width_img, _ = img_shape
     Ki = intristic_matrix_inv(width_img, height_img, img_hfov)
@@ -198,47 +192,6 @@ def find_align(long_line, short_line, hfov_img = 90, ):
     slx, sly = short_line
     llx, lly = long_line
     
-    # slxt = []
-    # slyt = []
-    # for i in range(len(sly)):
-    #     xt, yt = intristic_matrix(slx[i], sly[i])
-    #     slxt.append(xt)
-    #     slyt.append(yt)
-
-    # plt.figure(7)
-    # plt.plot(slxt, slyt)
-
-    # raster_sample_rate = len(llx)/360
-    # img_num_samples = hfov_img * raster_sample_rate
-    # print(f'sample rate raster: {raster_sample_rate} data points per degree\nnumber of samples from image: {img_num_samples} samples')
-    # img_sample_points_degrees = np.linspace(0, hfov_img, int(img_num_samples))
-    # img_sample_points_radians = np.radians(img_sample_points_degrees)
-    # #print(img_sample_points_radians[:10])
-    # x_transformer = lambda a : angle_to_flat(a, np.radians(hfov_img))
-    # img_point_on_img = [x_transformer(a) for a in img_sample_points_radians]
-    # new_sly = sample_from(img_point_on_img, sly)
-    # print(f'lenx {len(img_sample_points_radians)}, leny {len(new_sly)}')
-
-    # # downsample line from image 
-    # ratio = 9/16
-    # vfov_img = 90
-    # hfov_panorama = 360
-    # data_points = 361 # ska vara 360, fixa
-    # sample_rate_panorama = data_points/hfov_panorama # sample/azimuth degree
-    # resample_samplenum = hfov_img * sample_rate_panorama
-
-    # new_sly = sly[::6]
-    # new_slx = slx[::6]
-    # print(len(sly), len(new_sly))
-    # img_height = 1024*ratio
-    # #transform = np.vectorize(lambda x: vfov_img*(0.5-x/img_height))
-    # transform_y = proj_to_cyl(img_height, vfov_img)
-    
-
-    # print(len(new_slx))
-    # #sly_transformed = np.radians(transform_f(new_sly))
-    # sly_transformed = transform_y(new_sly)
-    
     
     res = np.correlate(lly + lly, sly)
     idx = np.argmax(res)
@@ -247,26 +200,6 @@ def find_align(long_line, short_line, hfov_img = 90, ):
     
     
 
-    
-
-    #plt.show(block=False)
-
-    # print(f'len sly:{len(sly_transformed)}, len lly:{len(lly)}')
-    # res = np.correlate(lly + lly, sly_transformed)
-    # idx = np.argmax(res)
-    
-    # print(len(res))
-
-   
-    # shift = llx[idx]
-    # if shift < 0:
-    #     shift = math.pi*2+shift
-    
-    # print(f'shift {shift}, dir = {(shift/math.pi*180 + hfov_img/2 + 90)%360}')
-
-    # plt.figure(3)
-    # plt.plot(np.linspace(shift, np.radians(160) + shift, 171), sly_transformed)
-    # plt.plot(np.linspace(0,2*math.pi, len(lly)), res[:len(lly)])
 
 
 # worldspace to rasterspace
