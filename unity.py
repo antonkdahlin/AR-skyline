@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from ridge import ridge2, cartesian_to_cylindrical
 from edgeextract import extract_skyline_with_preprocessing
 import math
+from matplotlib.widgets import Slider
 
 
 
@@ -26,16 +27,18 @@ def main():
     d0 = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637885605140156403.json'
     d50 = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637885606206101013.json'
     test = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637885650953570488.json'
+    # encoded fov below
     encodedhfov = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637896078768153833.json'
+    complexscene = 'D:/projects/AR_skyline/unity/ar_skyline/Assets/scenedata/Capture_637897761106632406.json'
 
-    res = importJson(encodedhfov)
-    raster_samplerate = 2 
+    res = importJson(complexscene)
+    raster_samplerate = 4 
 
     # get skyline from image analysis
     imgpath = res.get('absoluteImgPath')
     img, short_line = extract_skyline_with_preprocessing(imgpath)
     
-    
+    # gather metadata from image
     vfov_img_degrees = res.get('cam_fov', 90.0) 
     print(f'img resolution {img.shape}')
     height_img, width_img, _ = img.shape
@@ -48,17 +51,19 @@ def main():
     azi, ang = short_line_transformed
     num_data_points = raster_samplerate * int(hfov_img_degrees)
     
-    azi_new = np.linspace(azi[0], azi[-1], num_data_points)
-    ang_new = np.interp(azi_new, azi, ang)
 
-    short_line = azi_new, ang_new
+    azi_img = np.linspace(azi[0], azi[-1], num_data_points)
+    ang_img = np.interp(azi_img, azi, ang)
+
     
     
-    print(f'line from img ,xy same length?{len(azi_new) == len(ang_new)}, sampling rate = {len(azi_new) / hfov_img_degrees}')
+    
+    print(f'line from img ,xy same length?{len(azi_img) == len(ang_img)}, sampling rate = {len(azi_img) / hfov_img_degrees}')
 
 
     
     # generate skyline from raster
+    # gather metadata about raster from unity json output file
     raster = raster_map_from_flat(res.get('raster_map'), res.get('grid_size_x'), res.get('grid_size_z'))
     #drawraster(raster)
     raster = np.flip(raster, 0)
@@ -69,51 +74,43 @@ def main():
     cell_size = res.get("raster_cellsize")
     print(f'campos:{cam_pos}')
 
+    # transform coamera from worldspace to raster space
     cam_xz_t = transform_coord(cam_pos.get('x'), cam_pos.get('z'),
         ground_center.get('x'), ground_center.get('z'),
         ground_extents.get('x'), ground_extents.get('z'),
         cell_size)
-    
-    print(f'cam_t:{cam_xz_t}')
-    
+    campos_xzy = cam_xz_t + (cam_pos.get('y'),)
+
+    print(f'campos raster space:{campos_xzy}')
     
     rpoints = ridge2(raster, cam_xz_t, cam_pos.get('y'), 1, 2*math.pi/(360*raster_samplerate), 0, math.pi*2)
-
-    rpoints, azimuth = zip(*rpoints)
-    (x, y, height) = zip(*rpoints)
-
-    rpoints_cyl = []
-    for p in rpoints:
-        azi, angle = cartesian_to_cylindrical(cam_xz_t + (cam_pos.get('y'),), p)
-        
-        rpoints_cyl.append((azi, angle))
-
-    azi, ang = zip(*rpoints_cyl)
+    rpoints_xzy, _  = zip(*rpoints)
+    rpoints_x, rpoints_z, _ = zip(*rpoints_xzy)
+    azi_rp, ang_rp = handle_ridge_points(campos_xzy, rpoints)
     
 
-    #long_line = (azi, ang)
-    #long_line = (azimuth, ang)
-    print(f'line from img ,xy same length?{len(azimuth) == len(ang)}, sampling rate = {len(azimuth) / 360}')
 
     #shift = find_align(long_line, short_line)
-    res = np.correlate(ang + ang, ang_new)
-    res = sum_of_diff_slide(ang+ang, ang_new)
+    res = np.correlate(ang_rp + ang_rp, ang_img)
+    res = sum_of_diff_slide(ang_rp + ang_rp, ang_img)
     idx = np.argmax(res)
     idx = np.argmin(res)
-    shift = azimuth[idx]
+    shift = azi_rp[idx]
 
     print(f'shift {shift}, dir = {(shift/math.pi*180 + hfov_img_degrees/2 + 90)%360}')
     
+    #plot rastermap
     camx, camz = cam_xz_t
-    #fig, (ax1, ax2) = plt.subplots(2)
-    plt.figure(1)
-    plt.imshow(raster)
-    plt.scatter(x, y, s=5, color='r')
-    plt.scatter(camx, camz, s=15, color='g')
-    plt.title("Top down raster-map")
-    plt.xlabel("Pixel X")
-    plt.ylabel("Pixel Z")
+    rasterfig, ax = plt.subplots()
+    #plt.figure(1)
+    ax.imshow(raster)
+    rpoints_scat = ax.scatter(rpoints_x, rpoints_z, s=5, color='r')
+    camera_pixel = plt.scatter(camx, camz, s=15, color='g')
+    ax.set_title("Top down raster-map")
+    ax.set_xlabel("Pixel X")
+    ax.set_ylabel("Pixel Z")
 
+    # plot image with skyline pixels
     plt.figure(2)
     plt.imshow(img)
     plt.scatter(short_line[0], short_line[1], s=10, color='y')
@@ -121,19 +118,74 @@ def main():
     plt.xlabel("Pixel X")
     plt.ylabel("Pixel Z")
 
+    fig, correlation_plot = plt.subplots()
+    correlation_plot.plot(res)
     
-    fig, (line_plot, corr_plot) = plt.subplots(2)
-    corr_plot.plot(res)
-    line_plot.plot(azi_new + shift + .78, ang_new)
-    line_plot.plot(azimuth, ang)
+    fig, line_plot = plt.subplots()
+    img_line_plot, = line_plot.plot(azi_img + shift - azi_img[0], ang_img)
+    rpline, = line_plot.plot(azi_rp, ang_rp)
     line_plot.set_ylim([-math.pi/4, math.pi/4])
     plt.gca().set_aspect(1)
     line_plot.set_title("Skyline generated from raster-map")
     line_plot.set_xlabel("azimuth radians")
     line_plot.set_ylabel("altitude radians")
+
+    axcamx = plt.axes([0.25, 0.1, 0.65, 0.03])
+    camx_slider = Slider(
+        ax=axcamx,
+        label='camera x pos',
+        valmin=-10,
+        valmax=10,
+        valinit=0,
+    )
+
+    # Make a vertically oriented slider to control the amplitude
+    axcamz = plt.axes([0.1, 0.25, 0.0225, 0.63])
+    camz_slider = Slider(
+        ax=axcamz,
+        label="camera z pos",
+        valmin=-10,
+        valmax=10,
+        valinit=0,
+        orientation="vertical"
+    )
+
     
+    def update(val):
+        new_cx, new_cz, new_cy = camx + camx_slider.val, camz + camz_slider.val, cam_pos.get('y')
+        camera_pixel.set_offsets([new_cx, new_cz])
+
+        rpoints = ridge2(raster, (new_cx, new_cz), new_cy, 1, 2*math.pi/(360*raster_samplerate), 0, math.pi*2)
+        rpoints_xzy, _  = zip(*rpoints)
+        rpoints_x, rpoints_z, _ = zip(*rpoints_xzy)
+        rpoints_scat.set_offsets(list(zip(rpoints_x, rpoints_z)))
+
+        azi_rp, ang_rp = handle_ridge_points((new_cx, new_cz, new_cy), rpoints)
+        rpline.set_xdata(azi_rp)
+        rpline.set_ydata(ang_rp)
+
+        res = sum_of_diff_slide(ang_rp + ang_rp, ang_img)
+        idx = np.argmin(res)
+        shift = azi_rp[idx]
+        img_line_plot.set_xdata(azi_img + shift - azi_img[0])
+
+        print(f'shift {shift}, dir = {(shift/math.pi*180 + hfov_img_degrees/2 + 90)%360}')
+
+        rasterfig.canvas.draw_idle()
     
+    camx_slider.on_changed(update)
+    camz_slider.on_changed(update)
+
     plt.show()
+
+def handle_ridge_points(cam_pos_xzy, rpoints):
+    rpoints_cyl = []
+    for p, azi  in rpoints:
+        raster_pixel_azi, angle = cartesian_to_cylindrical(cam_pos_xzy, p)
+        rpoints_cyl.append((azi, angle))
+
+    azi, ang = zip(*rpoints_cyl)
+    return azi, ang
 
 def proj_to_cyl(maxval, maxangle):
     def transform(x):
@@ -175,6 +227,11 @@ def sample_from(sample_points, source):
 
 
 def transform_img_line(line, img_hfov, img_shape):
+    '''Transform the skyline from the image which is in pixel-space, xy
+    to cylindrical space using the inverse intrinsic matrix.
+    Intrinsic matrix is generated from image metadata: aspect and fov.
+    This does not account for camera distortion
+    '''
     height_img, width_img, _ = img_shape
     Ki = intristic_matrix_inv(width_img, height_img, img_hfov)
     x, y = line[0], line[1]
@@ -233,25 +290,8 @@ def drawraster(raster):
     plt.imshow(raster)
     plt.show()
 
-def test_sample_from():
-    assert sample_from([0.0,0.5, 1.0],[0,1,2,3,4]) == [0,2,4]
 
-def test_intristic_matrix():
-    # res  = []
-    # for x in range(0,1024,20):
-    #     for y in range(0,576,20):
-    #         ray = intristic_matrix(x, y)
-    #         azi = ray.item(0)
-    #         ang = ray.item(1)
-    #         res.append((azi,ang))
-    
-    # azi, ang = zip(*res)
 
-    # plt.scatter(azi, ang, s=1)
-    # plt.show()
-    Ki = intristic_matrix_inv(1024, 767, 90)
-    for x in range(0, 1024, 20):
-        print(img_point_to_radians(x, 400, Ki))
 
 def intristic_matrix_inv(w, h, hfov_degrees):
     # f=(W/2)/tan(fov/2) https://www.reddit.com/r/computervision/comments/ayclnf/calculate_angle_from_camera_to_detected_object/
@@ -260,29 +300,21 @@ def intristic_matrix_inv(w, h, hfov_degrees):
     fx, fy, u0, v0 = f , f , w/2, h/2
     K = np.array([[fx, 0, u0],[0, fy, v0],[0,0,1]])
     Ki = np.linalg.inv(K)
-    # r = Ki.dot([u,v,1])
-    # principal_axis = [0,0,1]
 
-    # print(r)
-    # cosangle = r.dot(principal_axis)/(np.linalg.norm(principal_axis)*np.linalg.norm(r))
-    # angle_radians = np.arccos(cosangle)
-    # print(f'{u},{v},{angle_radians}')
     return Ki
 
 def img_point_to_radians(x, y, Ki):
+    '''Transform xy point on image to azimuth and vertical viewing angle using inverse intrinsic matrix of camera
+    '''
     r = Ki.dot([x, y, 1])
     ang_radians = np.arctan(r)
     azi = ang_radians.item(0)
     altitude_angle = ang_radians.item(1)
     return azi, altitude_angle
 
-def test_sum_of_diff_slide():
-    print(sum_of_diff_slide([1,2,3,4,5], [1,2]))
 
 if __name__ == "__main__":
-    #test_intristic_matrix()
-    #test_sample_from()
-    test_sum_of_diff_slide()
+
     main()
 
 
