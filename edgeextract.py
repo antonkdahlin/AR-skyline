@@ -32,12 +32,23 @@ def threshholdingwithslider(img):
     plt.show()
 
 def main():
-    extract_skyline_with_preprocessing('sky2.jpg', True)
+    # src = '5 5 1 2 4;5 5 1 3 2;2 4 2 5 3;3 3 2 0 2;5 1 5 3 0'
+    # src = np.matrix(src).astype('uint8')
+    print(f'opencv version {cv.__version__}')
+    
+
+    
+    
+    extract_skyline_with_preprocessing('skyline.jpg', True)
 
 def extract_skyline_with_preprocessing(fname, plot = False):
     bgr = cv.imread(fname, cv.IMREAD_COLOR)
     blue, g, r = cv.split(bgr)
-    morph = close_open(5, 10, blue)
+    morph = close_open(9, 9, blue)
+    
+    morph_close = close_open(10, 1, blue)
+    morph_open = close_open(1, 10, blue)
+
     canny = canny_on_blue_channel(morph)
     ath = cv.adaptiveThreshold(blue, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 8)
     rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB)
@@ -47,15 +58,33 @@ def extract_skyline_with_preprocessing(fname, plot = False):
     
     
     if plot:
-        fig, axs = plt.subplots(2,3)
+        fig, axs = plt.subplots(3,3)
+        fig2, axs2 = plt.subplots(1,3)
+        def imshowhelp(axs, data, txt, xlabel):
+            axs.set_xticks([])
+            axs.set_yticks([])
+            axs.set_xlabel(xlabel)
+            axs.title.set_text(txt)
+            axs.imshow(data, 'gray')
 
-        axs[0,0].imshow(rgb)
+        fig2.set_size_inches(4,8)
+        
+        imshowhelp(axs2[0], blue, 'source', '(a)')
+        imshowhelp(axs2[1], morph_close, 'closing 10', '(b)')
+        imshowhelp(axs2[2], morph_open, 'opening 10', '(c)')
+
+        axs[0,0].imshow(rgb)    
         axs[0,1].imshow(blue,'gray')
         axs[0,2].imshow(morph,'gray')
         axs[1,0].imshow(canny,'gray')
         axs[1,1].imshow(ath,'gray')
+        axs[1,2].imshow(g,'gray')
+        axs[2,0].imshow(r,'gray')
 
+
+        
         plt.tight_layout()
+        # fig2.savefig('morphological_operations_demo.jpg', bbox_inches='tight', dpi = 400)
         plt.show()
     
 
@@ -96,15 +125,28 @@ def extract_skyline_traverse(img):
     s = [(i, fcol_nonzero[0])]
     
     print(s)
-    
+
+def getStructuringElement_circle(d):
+    kernel = np.zeros((d,d), dtype='uint8')
+    xl = np.linspace(-1,1,d)
+    yl = np.linspace(-1,1,d)
+    xx,yy = np.meshgrid(xl,yl)
+    # y,x = np.ogrid[-r:r+1,-r:r+1]
+    # mask = x**2 + y**2 <= r**2
+    mask = xx**2 + yy**2 <= 1
+    kernel[mask] = 1
+    return kernel
 
 def close_open(r1, r2, img):
-    # close with disk size 5
-    # open with disk size 10
-    kernel5 = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
-    kernel10 = cv.getStructuringElement(cv.MORPH_ELLIPSE, (10, 10))
-    closing = cv.morphologyEx(img, cv.MORPH_CLOSE, kernel5)
-    opening = cv.morphologyEx(closing, cv.MORPH_OPEN, kernel10)
+    
+    # kernel_close = cv.getStructuringElement(cv.MORPH_ELLIPSE, (r1, r1))
+    # kernel_open = cv.getStructuringElement(cv.MORPH_ELLIPSE, (r2, r2))
+    kernel_close = getStructuringElement_circle(r1)
+    kernel_open = getStructuringElement_circle(r2)
+    #print(kernel_close)
+    # print(kernel_open)
+    closing = cv.morphologyEx(img, cv.MORPH_CLOSE, kernel_close)
+    opening = cv.morphologyEx(closing, cv.MORPH_OPEN, kernel_open)
     return opening
 
 def canny_on_blue_channel(blue):
